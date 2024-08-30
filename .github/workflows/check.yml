@@ -1,0 +1,89 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+
+env:
+  DOCKER_BUILDKIT: '1'
+  GO_VERSION: '1.22'
+  GOLANGCI_LINT_VERSION: v1.55.2
+
+# This workflow runs for not-yet-reviewed external contributions and so it
+# intentionally has no write access and only limited read access to the
+# repository.
+permissions:
+  contents: read
+
+  # Annotations
+# 2 warnings
+# build
+# Unexpected input(s) 'cache', valid inputs are ['go-version', 'check-latest', 'stable', 'token']
+jobs:
+  lint:
+    name: "lint"
+    runs-on: ubuntu-22.04
+    steps:
+      - name: "Fetch source code"
+        uses: actions/checkout@v3
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GO_VERSION}}
+          check-latest: true
+          cache: true
+
+      - name: "go fmt check"
+        shell: bash
+        run: |
+          files=$(go fmt ./...)
+          if [ -n "$files" ]; then
+            echo "The following file(s) do not conform to go fmt:"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: "go vet"
+        shell: bash
+        run: |
+          go vet ./...
+
+      - name: "go.mod and go.sum consistency check"
+        shell: bash
+        run: |
+          go mod tidy
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo >&2 "ERROR: go.mod/go.sum are not up-to-date. Run 'go mod tidy' and then commit the updated files."
+            exit 1
+          fi
+
+      - name: "Download golang-lint"
+        shell: bash
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin ${{ env.GOLANGCI_LINT_VERSION }}
+          golangci-lint version
+
+      - name: "lint"
+        shell: bash
+        run: |
+          golangci-lint run -v
+
+  unit-tests:
+    name: "Unit Tests"
+    runs-on: ubuntu-22.04
+    steps:
+      - name: "Fetch source code"
+        uses: actions/checkout@v3
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{env.GO_VERSION}}
+          check-latest: true
+          cache: true
+
+      - name: "Unit tests"
+        shell: bash
+        run: |
+          go test ./...
