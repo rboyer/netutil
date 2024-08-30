@@ -1,8 +1,10 @@
 SHELL := /bin/bash
 
+.PHONY: all
+all: noop
+
 .PHONY: noop
-noop:
-	$(info noop)
+noop: ;
 
 .PHONY: tidy
 tidy:
@@ -25,3 +27,9 @@ format:
 	@for f in $$(find . -name '*.go' -print); do \
 		gofmt -s -w $$f ; \
 	done
+
+.PHONY: help
+help:
+	$(info available make targets)
+	$(info ----------------------)
+	@grep "^[a-z0-9-][a-z0-9.-]*:" Makefile  | cut -d':' -f1 | sort
